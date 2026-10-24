@@ -18,6 +18,17 @@
 <body>
 <div id="ld">IMMANUEL FMS 여는 중…</div>
 <!-- 액자: 실제 화면은 Apps Script 웹앱. 이 파일은 주소를 짧게 하고 구글 안내 띠를 숨기는 역할만 함 -->
-<iframe id="app" src="https://script.google.com/macros/s/AKfycby20qLAJisW4a0_qEDj70klX-wl5YpcmeKKd2v3kx9XqvYEdxxvz4yVcriK-QMvU9B_Fw/exec" allow="clipboard-write" onload="document.getElementById('ld').remove()"></iframe>
+<iframe id="app" src="https://script.google.com/macros/s/AKfycby20qLAJisW4a0_qEDj70klX-wl5YpcmeKKd2v3kx9XqvYEdxxvz4yVcriK-QMvU9B_Fw/exec?w=1" allow="clipboard-write" onload="var l=document.getElementById('ld');if(l)l.remove()"></iframe>
+<script>
+  // 앱(iframe 안)이 "이 주소로 가 달라"고 보내면 iframe 주소를 바꿈 (구글 샌드박스 안에서는 스스로 못 옮김)
+  var BASE = 'https://script.google.com/macros/s/AKfycby20qLAJisW4a0_qEDj70klX-wl5YpcmeKKd2v3kx9XqvYEdxxvz4yVcriK-QMvU9B_Fw/exec';
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (d.fms !== 'nav' || typeof d.url !== 'string') return;
+    if (d.url.indexOf(BASE) !== 0) return;                       // 우리 웹앱 주소만 허용
+    var u = d.url + (d.url.indexOf('?') >= 0 ? '&' : '?') + 'w=1';
+    document.getElementById('app').src = u;
+  });
+</script>
 </body>
 </html>
