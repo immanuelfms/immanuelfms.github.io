@@ -49,15 +49,45 @@
   }
   // 예전 앱(ready 신호 없음) 대비: 액자 로드 뒤 2.5초면 그냥 걷음
   function frameLoaded() { clearTimeout(fallback); fallback = setTimeout(ready, 2500); }
+  /* v0.10.3 뒤로가기: 앱이 화면 깊이(0 홈 / 1 메뉴 화면 / 2 글 하나)를 알려 주면 그만큼 브라우저 기록을 쌓아 둠.
+     폰·브라우저 뒤로가기 → 기록 한 칸이 빠짐(popstate) → 앱에 {fms:'back'} 을 보내 바로 전 화면을 그리게 함.
+     홈(깊이 0)에서 뒤로가기는 그대로 사이트를 나감 */
+  var cur = 0, quiet = 0;
+  try { history.replaceState({ fmsd: 0 }, ''); } catch (e) {}
+  function setDepth(d) {
+    d = Math.max(0, Math.min(5, d | 0));
+    if (d > cur) { while (cur < d) { cur++; history.pushState({ fmsd: cur }, ''); } }
+    else if (d < cur) { var n = d - cur; cur = d; quiet++; history.go(n); }   // 앱의 [← 뒤로] 버튼으로 돌아간 경우: 기록만 맞춤
+  }
+  window.addEventListener('popstate', function (e) {
+    var d = (e.state && typeof e.state.fmsd === 'number') ? e.state.fmsd : 0;
+    if (quiet > 0) { quiet--; cur = d; return; }
+    if (d < cur) { cur = d; sendApp({ fms: 'back' }); }
+    else if (d > cur) { quiet++; history.go(cur - d); }                         // 앞으로 가기는 쓰지 않음 → 되돌림
+  });
+  // 앱 화면은 구글 iframe 몇 겹 안쪽에 있어서, 모든 안쪽 창에 보냄 (앱은 보낸 쪽이 액자(top)인지 확인함)
+  function sendApp(m) {
+    (function walk(w) {
+      try { w.postMessage(m, '*'); } catch (e) {}
+      try { for (var i = 0; i < w.frames.length; i++) walk(w.frames[i]); } catch (e) {}
+    })(document.getElementById('app').contentWindow);
+  }
+  // 화면 이동: iframe 주소만 바꾸면 브라우저 기록이 따로 한 칸 쌓여 뒤로가기가 엉킴 → iframe 을 새로 만들어 바꿔 끼움
+  function swapFrame(u) {
+    var old = document.getElementById('app'), f = document.createElement('iframe');
+    f.id = 'app'; f.setAttribute('allow', 'clipboard-write'); f.onload = frameLoaded; f.src = u;
+    old.parentNode.replaceChild(f, old);
+  }
   window.addEventListener('message', function (e) {
     var d = e.data || {};
     if (d.fms === 'ready') return ready();
+    if (d.fms === 'depth' && typeof d.d === 'number') { if (/\.googleusercontent\.com$/.test(e.origin)) setDepth(d.d); return; }   // v0.10.3 뒤로가기 (우리 앱 화면에서 온 것만)
     // 앱(iframe 안)이 "이 주소로 가 달라"고 보내면 iframe 주소를 바꿈 (구글 샌드박스 안에서는 스스로 못 옮김)
     if (d.fms !== 'nav' || typeof d.url !== 'string') return;
     if (d.url.indexOf(BASE) !== 0) return;                       // 우리 웹앱 주소만 허용
     var u = d.url + (d.url.indexOf('?') >= 0 ? '&' : '?') + 'w=1';
     bar.className = 'on';                                          // 화면 이동 중 표시 (위쪽 주황 줄)
-    document.getElementById('app').src = u;
+    swapFrame(u);
   });
 </script>
 </body>
